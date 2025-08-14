@@ -3,14 +3,16 @@ from typing import Dict
 from datetime import datetime, timedelta
 from interfaces.dialogue_state import DialogueState
 from interfaces.redmine_state import RedmineState
+from tools.google_search import GoogleSearchTool
 class RedmineAPI:
     """Клас для роботи з Redmine API"""
     
     def __init__(self):
         self.state = RedmineState()
+        self.google_search = GoogleSearchTool()
+        
 
     def _make_request(self, patch: str, method: str = "GET", params: Dict = None) -> Dict:
-        print(f"Виконання запиту до Redmine API: {method} {params}/{patch}")
         """Базовий метод для HTTP запитів до Redmine"""
         if not self.state.redmine_url or not self.state.redmine_api_key:
             raise Exception("Redmine API не налаштований")
@@ -20,7 +22,6 @@ class RedmineAPI:
             'X-Redmine-API-Key': self.state.redmine_api_key,
             'Content-Type': 'application/json'
         }
-        
         try:
             if method == "GET":
                 response = requests.get(url, headers=headers, params=params)
@@ -58,7 +59,6 @@ class RedmineAPI:
                 'limit': 5
             }
             data = self._make_request('issues', params=params)
-            
             if not data.get('issues'):
                 state.context = "📋 Завдань не знайдено"
                 return state
@@ -107,7 +107,7 @@ class RedmineAPI:
             data = self._make_request('issues', params=params)
             
             if not data.get('issues'):
-                state.context = f"📅 На {date} завдань не знайдено"
+                state.context = f"📅 На {date} завдань не знайдено"                
                 return state
 
             issues_text = [self._format_issue_short(issue) for issue in data['issues']]
@@ -395,3 +395,16 @@ class RedmineAPI:
         
         # Якщо не вдалося парсити, повертаємо сьогодні
         return today.strftime('%Y-%m-%d')
+    def get_google_search(self, state: DialogueState) -> DialogueState:
+        """Викликає Google Search Tool"""
+        try:
+            query = state.function_calls[0]["arguments"]["query"]
+            result = self.google_search.search(query)
+            state.context = result
+            state.current_node = "generate_response"
+            state.intent = "get_google_search"
+        except Exception as e:
+            print(f"Google Search error: {e}")
+            state.context = "Помилка пошуку в Google."
+            state.current_node = "generate_response"
+        return state

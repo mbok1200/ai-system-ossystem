@@ -42,7 +42,7 @@ def load_file_map() -> Dict[str, str]:
     return file_map
 file_map = load_file_map()
 
-ai_system = AISystem(initial_state=DialogueState())
+ai_system = AISystem(state=DialogueState())
 def load_previous_session(session_list: str, session_state: dict) -> tuple:
     if session_list:
         # Створюємо новий dict якщо session_state є tuple або None
@@ -92,34 +92,31 @@ def chat_interface(message: str, history: list, mode: str, session_state: dict) 
     ai_system.state.update(
         user_input=message,
         session_state=session_state,
-        mode=mode
     )
+    user_message = {"role": "user", "content": message}
+    history.append(user_message)
+    history_manager.save_message(session_id, "user", message)
+    yield "", history, session_state 
     try:
         result = ai_system.process_query()
-        response = result['response']
-        
-        user_message = {"role": "user", "content": message}
+        response = result.response_messages[-1]["content"] if result.response_messages else "Вибачте, не вдалося обробити ваш запит."
         assistant_message = {"role": "assistant", "content": response}
-        
         # Додаємо до історії
-        history.append(user_message)
         history.append(assistant_message)
         
         # Зберігаємо в базу даних
-        history_manager.save_message(session_id, "user", message)
         history_manager.save_message(session_id, "assistant", response)
-        
-        return "", history, session_state
+
+        yield "", history, session_state 
         
     except Exception as e:
         error_message = f"❌ Помилка: {str(e)}"
         error_response = {"role": "assistant", "content": error_message}
-        history.append({"role": "user", "content": message})
         history.append(error_response)
         
-        return "", history, session_state
+        yield "", history, session_state 
 
-def create_interface(state: DialogueState):
+def create_interface():
     """Створення Gradio інтерфейсу"""
     
     # Кастомний CSS
@@ -201,19 +198,19 @@ def create_interface(state: DialogueState):
                 for example in examples:
                     gr.Markdown(example)
                     
-                with gr.Group():
-                    gr.Markdown("## 🚀 Швидкі режими:")
+                # with gr.Group():
+                #     gr.Markdown("## 🚀 Швидкі режими:")
                     
-                    mode_buttons = gr.Radio(
-                        choices=[
-                            ("📚 Тільки Redmine", "redmine"),
-                            ("🔍 База + веб-пошук", "hybrid"),
-                            ("🌐 Тільки веб-пошук", "web_only")
-                        ],
-                        value="hybrid",
-                        label="Режим роботи:",
-                        info="Оберіть стратегію пошуку"
-                    )
+                #     mode_buttons = gr.Radio(
+                #         choices=[
+                #             ("📚 Тільки Redmine", "redmine"),
+                #             ("🔍 База + веб-пошук", "hybrid"),
+                #             ("🌐 Тільки веб-пошук", "web_only")
+                #         ],
+                #         value="hybrid",
+                #         label="Режим роботи:",
+                #         info="Оберіть стратегію пошуку"
+                #     )
                     
                 # gr.Markdown("## ℹ️ Статус системи:")
                 
@@ -254,12 +251,12 @@ def create_interface(state: DialogueState):
         #     remove_sessions_btn = gr.Button("🗑️ Видалити сесію", size="sm")
 
         # Event handlers - after all components are defined
-        def refresh_sessions():
-            """Оновлює список сесій в dropdown"""
-            new_choices = get_session_choices()
-            return gr.Dropdown(choices=new_choices, value=None)
-        def remove_session(input_session: str):
-            history_manager.delete_session(input_session)
+        # def refresh_sessions():
+        #     """Оновлює список сесій в dropdown"""
+        #     new_choices = get_session_choices()
+        #     return gr.Dropdown(choices=new_choices, value=None)
+        # def remove_session(input_session: str):
+        #     history_manager.delete_session(input_session)
         # load_session_btn.click(
         #     load_previous_session,
         #     inputs=[session_dropdown, session_state],
@@ -277,14 +274,14 @@ def create_interface(state: DialogueState):
         # Chat events
         msg.submit(
             chat_interface, 
-            inputs=[msg, chatbot, mode_buttons, session_state, state], 
+            inputs=[msg, chatbot, session_state], 
             outputs=[msg, chatbot, session_state], 
             queue=True
         )
         
         send_btn.click(
             chat_interface, 
-            inputs=[msg, chatbot, mode_buttons, session_state, state], 
+            inputs=[msg, chatbot, session_state], 
             outputs=[msg, chatbot, session_state], 
             queue=True
         )

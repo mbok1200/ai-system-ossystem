@@ -45,10 +45,10 @@ class RAGEngine:
             if stats.namespaces:
                 for ns, data in stats.namespaces.items():
                     ns_name = ns if ns else "''"
-                    logging.info(f"   Namespace {ns_name}: {data['vector_count']} векторів")
+                    print(f"   Namespace {ns_name}: {data['vector_count']} векторів")
         except Exception as e:
-            logging.error(f"❌ Помилка отримання статистики: {e}")
-    
+            print(f"❌ Помилка отримання статистики: {e}")
+
     def search(self, query: str, top_k: int = 5) -> Dict:
         try:
             stats = self.index.describe_index_stats()
@@ -104,7 +104,17 @@ class RAGEngine:
             sources = []
             total_score = 0
             
-            for i, match in enumerate(results.matches, 1):
+            # Відсортуємо всі результати за score (від найбільшого до найменшого)
+            sorted_matches = sorted(results.matches, key=lambda x: x.score, reverse=True)
+
+            # Фільтруємо всі з score > 0.73
+            relevant_matches = [m for m in sorted_matches if m.score > 0.73]
+
+            # Якщо релевантних менше 2, добираємо ще найближчі (найвищі за score)
+            if len(relevant_matches) < 2:
+                relevant_matches = sorted_matches[:2]
+
+            for i, match in enumerate(relevant_matches, 1):
                 result_info = {
                     'rank': i,
                     'score': round(match.score, 3),
@@ -112,23 +122,20 @@ class RAGEngine:
                     'text': match.metadata.get('text', ''),
                     'source': match.metadata.get('source', 'Unknown'),
                     'title': match.metadata.get('title', 'Без назви'),
-                    'is_relevant': match.score > 0.7
+                    'is_relevant': match.score > 0.73
                 }
                 all_results.append(result_info)
-                
-                # Додаємо до контексту тільки релевантні
-                if match.score > 0.7:
-                    context_parts.append(match.metadata.get('text', ''))
-                    sources.append({
-                        'id': match.id,
-                        'score': match.score,
-                        'source': match.metadata.get('source', 'Unknown'),
-                        'title': match.metadata.get('title', 'Без назви')
-                    })
-                    total_score += match.score
-            
+                context_parts.append(match.metadata.get('text', ''))
+                sources.append({
+                    'id': match.id,
+                    'score': match.score,
+                    'source': match.metadata.get('source', 'Unknown'),
+                    'title': match.metadata.get('title', 'Без назви')
+                })
+                total_score += match.score
+
             avg_score = total_score / len(sources) if sources else 0
-            
+
             return {
                 'success': len(context_parts) > 0,
                 'context': '\n\n'.join(context_parts),
@@ -237,7 +244,7 @@ class RAGEngine:
             
             # Викликаємо OpenAI API
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",  # Змінено на більш стабільну модель
+                model="gpt-4.1-nano",  # Змінено на більш стабільну модель
                 messages=messages,
                 temperature=0.3,
                 max_tokens=1500,  # Збільшено ліміт

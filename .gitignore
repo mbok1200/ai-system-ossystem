@@ -1,3 +1,8 @@
 /.env
 /__ini__.py
 data/gdrive
+/venv/
+__pycache__/
+/*/__pycache__/
+__init__.py
+chat_history.db
