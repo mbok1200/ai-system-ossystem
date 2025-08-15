@@ -96,25 +96,26 @@ def chat_interface(message: str, history: list, mode: str, session_state: dict) 
     user_message = {"role": "user", "content": message}
     history.append(user_message)
     history_manager.save_message(session_id, "user", message)
-    yield "", history, session_state 
+    # Додаємо прелоадер у чат
+    loader_message = {"role": "assistant", "content": "⏳ Асистент друкує..."}
+    history.append(loader_message)
+    yield "", history, session_state
+
     try:
         result = ai_system.process_query()
         response = result.response_messages[-1]["content"] if result.response_messages else "Вибачте, не вдалося обробити ваш запит."
+        # Видаляємо прелоадер
+        history = [msg for msg in history if msg != loader_message]
         assistant_message = {"role": "assistant", "content": response}
-        # Додаємо до історії
         history.append(assistant_message)
-        
-        # Зберігаємо в базу даних
         history_manager.save_message(session_id, "assistant", response)
-
-        yield "", history, session_state 
-        
+        yield "", history, session_state
     except Exception as e:
+        history = [msg for msg in history if msg != loader_message]
         error_message = f"❌ Помилка: {str(e)}"
         error_response = {"role": "assistant", "content": error_message}
         history.append(error_response)
-        
-        yield "", history, session_state 
+        yield "", history, session_state
 
 def create_interface():
     """Створення Gradio інтерфейсу"""

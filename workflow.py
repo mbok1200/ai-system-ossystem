@@ -91,7 +91,7 @@ class Workflow:
             f"{history}"
             f"User requested: {state.user_input}\n"
             f"Executed function: {state.intent}\n"
-            f"Execution result: {state.context} {state.RAG_context} {state.sources}\n\n"
+            f"Execution result: {state.context} {state.sources}\n\n"
             "Format the answer as a markdown list. Highlight important information in **bold**. "
             "Analyze the execution result above. If the result is not meaningful or is missing, generate a helpful response yourself based on the user's request and conversation context.\n"
             "Compose a clear, helpful, and polite response using the user's request language, considering the provided data and previous conversation context. "
@@ -152,8 +152,7 @@ class Workflow:
         }]
         system_prompt = (
             f"{analize_prompt()}"
-            f" {history} considering the provided data and previous conversation context"
-            f" RAG information: {state.RAG_context}"
+            f" RAG information: {state.RAG_context[:100]}"
         )
         messages.append({
             "role": "system",

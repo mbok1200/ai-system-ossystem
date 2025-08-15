@@ -35,9 +35,10 @@ class AISystem:
     def _process_redmine(self) -> DialogueState:
         try:
             rag_result = self.rag_engine.search(self.state.user_input)
-            if rag_result['success'] and rag_result['score'] > 0.7:
+            self.state.RAG_context = ""
+            if rag_result['success'] and rag_result['score'] > 0.75:
                 self.state.RAG_context = rag_result['context']
-                self.state.sources.append(rag_result['sources'])
+                self.state.sources = rag_result['sources']
         except Exception as e:
             print(f"RAG пошук помилка: {e}")
         try:
